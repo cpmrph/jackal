@@ -1,6 +1,9 @@
+import asyncio
+import json
 import os
 
 import discord
+import pandas as pd
 import pendulum
 
 from collections import namedtuple
@@ -8,6 +11,7 @@ from discord import app_commands
 from discord.app_commands import Choice
 from discord.ext import commands
 from enum import Enum
+from siegeapi import Auth
 
 
 def the_day_before(dt):
@@ -44,6 +48,11 @@ SEASON_TABLE = {
 }
 
 
+class Side(Enum):
+    ATK = "atk"
+    DEF = "def"
+
+
 class map(commands.Cog):
     def __init__(self, bot: commands.Bot) -> None:
         self.bot = bot
@@ -69,6 +78,54 @@ class map(commands.Cog):
         await interaction.response.send_message(
             f"{user}'s map stats ({SEASON_TABLE[season].start} - {SEASON_TABLE[season].end})"
         )
+        await self._fetch_map_stats(
+            user, SEASON_TABLE[season].start, SEASON_TABLE[season].end
+        )
+
+    def _round_stats(self, stats, side: Side):
+        df = pd.DataFrame(stats)
+        df = df.assign(win=df["rounds_won"] / df["rounds_played"] * 100.0)
+        df = df[["map_name", "rounds_played", "win"]]
+        df = df.rename(
+            columns={
+                "rounds_played": f"{side.value}_rounds",
+                "win": f"{side.value}_win",
+            }
+        )
+        return df
+
+    async def _fetch_map_stats(self, user: str, start_date: str, end_date: str):
+        print(f"auth: {os.getenv('EMAIL')}:{os.getenv('PASSWORD')}")
+
+        auth = Auth(os.getenv("EMAIL"), os.getenv("PASSWORD"))
+
+        player = await auth.get_player(name=user)
+
+        player.set_timespan_dates(start_date=start_date, end_date=end_date)
+
+        await player.load_maps()
+
+        pd.options.display.precision = 3
+
+        all_stats = [m.__dict__ for m in player.maps.ranked.all]
+        df = pd.DataFrame(all_stats)
+        df = df.assign(win=df["matches_won"] / df["matches_played"] * 100.0)
+        df = df[["map_name", "matches_played", "win"]]
+        df = df.rename(columns={"matches_played": "matches"})
+        df = df.sort_values(["win", "matches"], ascending=[False, False])
+
+        atk_stats = [m.__dict__ for m in player.maps.ranked.attacker]
+        atkdf = round_stats(atk_stats, Side.ATK)
+
+        def_stats = [m.__dict__ for m in player.maps.ranked.defender]
+        defdf = round_stats(def_stats, Side.DEF)
+
+        df = pd.merge(df, atkdf, on="map_name")
+        df = pd.merge(df, defdf, on="map_name")
+
+        print(df.to_string(index=False))
+
+        await auth.close()
 
 
 async def setup(bot: commands.Bot) -> None:

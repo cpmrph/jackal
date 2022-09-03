@@ -83,9 +83,7 @@ class map(commands.Cog):
                 f"{user}'s map stats ({SEASON_TABLE[season].start} - {SEASON_TABLE[season].end})"
             )
         else:
-            await interaction.response.send_message(
-                f"Error: {e}"
-            )
+            await interaction.response.send_message(f"Error: {e}")
 
     def _round_stats(self, stats, side: Side):
         df = pd.DataFrame(stats)
@@ -140,6 +138,7 @@ class map(commands.Cog):
             await auth.close()
 
         return (ok, error)
+
 
 async def setup(bot: commands.Bot) -> None:
     await bot.add_cog(map(bot), guilds=[discord.Object(id=os.getenv("GUILD_ID"))])

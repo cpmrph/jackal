@@ -1,0 +1,7 @@
+discord.py
+siegeapi >= 4.1.4, < 5.0.0
+matplotlib >= 3.5.3, < 4.0.0
+pandas >= 1.4.3, < 2.0.0
+python-dotenv >= 0.20.0, < 1.0.0
+typer >= 0.6.1, < 1.0.0
+pendulum >= 2.1.2, < 3.0.0

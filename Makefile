@@ -1,9 +1,7 @@
-USER=
-
 .PHONY: run
 run:
-	poetry run python -m jackal $(USER)
+	poetry run python main.py
 
 .PHONY: fmt
 fmt:
-	poetry run python -m black jackal
+	poetry run python -m black .

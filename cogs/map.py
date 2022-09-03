@@ -75,12 +75,17 @@ class map(commands.Cog):
         user: str,
         season: str,
     ) -> None:
-        await interaction.response.send_message(
-            f"{user}'s map stats ({SEASON_TABLE[season].start} - {SEASON_TABLE[season].end})"
-        )
-        await self._fetch_map_stats(
+        (ok, e) = await self._fetch_map_stats(
             user, SEASON_TABLE[season].start, SEASON_TABLE[season].end
         )
+        if ok:
+            await interaction.response.send_message(
+                f"{user}'s map stats ({SEASON_TABLE[season].start} - {SEASON_TABLE[season].end})"
+            )
+        else:
+            await interaction.response.send_message(
+                f"Error: {e}"
+            )
 
     def _round_stats(self, stats, side: Side):
         df = pd.DataFrame(stats)
@@ -97,36 +102,44 @@ class map(commands.Cog):
     async def _fetch_map_stats(self, user: str, start_date: str, end_date: str):
         print(f"auth: {os.getenv('EMAIL')}:{os.getenv('PASSWORD')}")
 
-        auth = Auth(os.getenv("EMAIL"), os.getenv("PASSWORD"))
+        ok = True
+        error = ""
+        try:
+            auth = Auth(os.getenv("EMAIL"), os.getenv("PASSWORD"))
+            player = await auth.get_player(name=user)
 
-        player = await auth.get_player(name=user)
+            player.set_timespan_dates(start_date=start_date, end_date=end_date)
 
-        player.set_timespan_dates(start_date=start_date, end_date=end_date)
+            await player.load_maps()
 
-        await player.load_maps()
+            pd.options.display.precision = 3
 
-        pd.options.display.precision = 3
+            all_stats = [m.__dict__ for m in player.maps.ranked.all]
+            df = pd.DataFrame(all_stats)
+            df = df.assign(win=df["matches_won"] / df["matches_played"] * 100.0)
+            df = df[["map_name", "matches_played", "win"]]
+            df = df.rename(columns={"matches_played": "matches"})
+            df = df.sort_values(["win", "matches"], ascending=[False, False])
 
-        all_stats = [m.__dict__ for m in player.maps.ranked.all]
-        df = pd.DataFrame(all_stats)
-        df = df.assign(win=df["matches_won"] / df["matches_played"] * 100.0)
-        df = df[["map_name", "matches_played", "win"]]
-        df = df.rename(columns={"matches_played": "matches"})
-        df = df.sort_values(["win", "matches"], ascending=[False, False])
+            atk_stats = [m.__dict__ for m in player.maps.ranked.attacker]
+            atkdf = self._round_stats(atk_stats, Side.ATK)
 
-        atk_stats = [m.__dict__ for m in player.maps.ranked.attacker]
-        atkdf = round_stats(atk_stats, Side.ATK)
+            def_stats = [m.__dict__ for m in player.maps.ranked.defender]
+            defdf = self._round_stats(def_stats, Side.DEF)
 
-        def_stats = [m.__dict__ for m in player.maps.ranked.defender]
-        defdf = round_stats(def_stats, Side.DEF)
+            df = pd.merge(df, atkdf, on="map_name")
+            df = pd.merge(df, defdf, on="map_name")
 
-        df = pd.merge(df, atkdf, on="map_name")
-        df = pd.merge(df, defdf, on="map_name")
+            print(df.to_string(index=False))
 
-        print(df.to_string(index=False))
+        except Exception as e:
+            ok = False
+            error = e
 
-        await auth.close()
+        finally:
+            await auth.close()
 
+        return (ok, error)
 
 async def setup(bot: commands.Bot) -> None:
     await bot.add_cog(map(bot), guilds=[discord.Object(id=os.getenv("GUILD_ID"))])

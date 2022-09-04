@@ -30,25 +30,12 @@ FILE_NAME = "map_stats.png"
 
 # NOTE: https://ja.wikipedia.org/wiki/%E3%83%AC%E3%82%A4%E3%83%B3%E3%83%9C%E3%83%BC%E3%82%B7%E3%83%83%E3%82%AF%E3%82%B9_%E3%82%B7%E3%83%BC%E3%82%B8#%E3%82%A2%E3%83%83%E3%83%97%E3%83%87%E3%83%BC%E3%83%88
 class Season(Enum):
-    VECTOR_GLARE = Period(
-        "20220614", pendulum.yesterday("Asia/Tokyo").format("YYYYMMDD")
-    )
-    DEMON_VEIL = Period("20220315", the_day_before(VECTOR_GLARE.start))
-    HIGH_CALIBRE = Period("20211130", the_day_before(DEMON_VEIL.start))
-    CRYSTAL_GUARD = Period("20210907", the_day_before(HIGH_CALIBRE.start))
-    NORTH_STAR = Period("20210615", the_day_before(CRYSTAL_GUARD.start))
-    CRIMSON_HEIST = Period("20210316", the_day_before(NORTH_STAR.start))
-
-
-# NOTE: TypeError: invalid Choice value type given, expected int, str, or float
-SEASON_TABLE = {
-    Season.DEMON_VEIL.name: Season.DEMON_VEIL.value,
-    Season.VECTOR_GLARE.name: Season.VECTOR_GLARE.value,
-    Season.HIGH_CALIBRE.name: Season.HIGH_CALIBRE.value,
-    Season.CRYSTAL_GUARD.name: Season.CRYSTAL_GUARD.value,
-    Season.NORTH_STAR.name: Season.NORTH_STAR.value,
-    Season.CRIMSON_HEIST.name: Season.CRIMSON_HEIST.value,
-}
+    VECTOR_GLARE = "20220614"
+    DEMON_VEIL = "20220315"
+    HIGH_CALIBRE = "20211130"
+    CRYSTAL_GUARD = "20210907"
+    NORTH_STAR = "20210615"
+    CRIMSON_HEIST = "20210316"
 
 
 class Side(Enum):
@@ -62,6 +49,8 @@ class map(commands.Cog):
 
     @app_commands.command(name="map", description="ランクマップごとの戦績を取得")
     @app_commands.describe(user="ユーザ名", season="集計対象シーズン")
+    # NOTE: Cannot use Enum.
+    # TypeError: invalid Choice value type given, expected int, str, or float
     @app_commands.choices(
         season=[
             Choice(name=Season.VECTOR_GLARE.name, value=Season.VECTOR_GLARE.name),
@@ -79,9 +68,8 @@ class map(commands.Cog):
         user: str,
         season: str,
     ) -> None:
-        (ok, e) = await self._fetch_map_stats(
-            user, SEASON_TABLE[season].start, SEASON_TABLE[season].end
-        )
+        period = self._period_of_season(season)
+        (ok, e) = await self._fetch_map_stats(user, period.start, period.end)
         if ok:
             fp = discord.File(FILE_NAME)
             await interaction.response.send_message(
@@ -90,6 +78,30 @@ class map(commands.Cog):
             )
         else:
             await interaction.response.send_message(f"Error: {e}")
+
+    def _period_of_season(self, season: str) -> Period:
+        season_table = {
+            Season.VECTOR_GLARE.name: Period(
+                Season.VECTOR_GLARE.value,
+                pendulum.yesterday("Asia/Tokyo").format("YYYYMMDD"),
+            ),
+            Season.DEMON_VEIL.name: Period(
+                Season.DEMON_VEIL.value, the_day_before(Season.VECTOR_GLARE.value)
+            ),
+            Season.HIGH_CALIBRE.name: Period(
+                Season.HIGH_CALIBRE.value, the_day_before(Season.DEMON_VEIL.value)
+            ),
+            Season.CRYSTAL_GUARD.name: Period(
+                Season.CRYSTAL_GUARD.value, the_day_before(Season.HIGH_CALIBRE.value)
+            ),
+            Season.NORTH_STAR.name: Period(
+                Season.NORTH_STAR.value, the_day_before(Season.CRYSTAL_GUARD.value)
+            ),
+            Season.CRIMSON_HEIST.name: Period(
+                Season.CRIMSON_HEIST.value, the_day_before(Season.NORTH_STAR.value)
+            ),
+        }
+        return season_table[season]
 
     def _round_stats(self, stats, side: Side):
         df = pd.DataFrame(stats)
@@ -105,7 +117,7 @@ class map(commands.Cog):
 
     async def _fetch_map_stats(self, user: str, start_date: str, end_date: str):
         # print(f"auth: {os.getenv('EMAIL')}:{os.getenv('PASSWORD')}")
-        # print(f"{user} ({start_date} - {end_date})")
+        print(f"_fetch_map_stats: {user} ({start_date} - {end_date})")
 
         ok = True
         error = ""

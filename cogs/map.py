@@ -30,6 +30,7 @@ FILE_NAME = "map_stats.png"
 
 # NOTE: https://ja.wikipedia.org/wiki/%E3%83%AC%E3%82%A4%E3%83%B3%E3%83%9C%E3%83%BC%E3%82%B7%E3%83%83%E3%82%AF%E3%82%B9_%E3%82%B7%E3%83%BC%E3%82%B8#%E3%82%A2%E3%83%83%E3%83%97%E3%83%87%E3%83%BC%E3%83%88
 class Season(Enum):
+    BRUTAL_SWARM = "20220906"
     VECTOR_GLARE = "20220614"
     DEMON_VEIL = "20220315"
     HIGH_CALIBRE = "20211130"
@@ -53,13 +54,13 @@ class map(commands.Cog):
     # TypeError: invalid Choice value type given, expected int, str, or float
     @app_commands.choices(
         season=[
+            Choice(name=Season.BRUTAL_SWARM.name, value=Season.BRUTAL_SWARM.name),
             Choice(name=Season.VECTOR_GLARE.name, value=Season.VECTOR_GLARE.name),
-            # TODO: Temporarily disabled
-            # Choice(name=Season.DEMON_VEIL.name, value=Season.DEMON_VEIL.name),
-            # Choice(name=Season.HIGH_CALIBRE.name, value=Season.HIGH_CALIBRE.name),
-            # Choice(name=Season.CRYSTAL_GUARD.name, value=Season.CRYSTAL_GUARD.name),
-            # Choice(name=Season.NORTH_STAR.name, value=Season.NORTH_STAR.name),
-            # Choice(name=Season.CRIMSON_HEIST.name, value=Season.CRIMSON_HEIST.name),
+            Choice(name=Season.DEMON_VEIL.name, value=Season.DEMON_VEIL.name),
+            Choice(name=Season.HIGH_CALIBRE.name, value=Season.HIGH_CALIBRE.name),
+            Choice(name=Season.CRYSTAL_GUARD.name, value=Season.CRYSTAL_GUARD.name),
+            Choice(name=Season.NORTH_STAR.name, value=Season.NORTH_STAR.name),
+            Choice(name=Season.CRIMSON_HEIST.name, value=Season.CRIMSON_HEIST.name),
         ]
     )
     async def map(
@@ -81,9 +82,13 @@ class map(commands.Cog):
 
     def _period_of_season(self, season: str) -> Period:
         season_table = {
+            Season.BRUTAL_SWARM.name: Period(
+                Season.BRUTAL_SWARM.value,
+                pendulum.yesterday("Asia/Tokyo").format("YYYYMMDD"),
+            ),
             Season.VECTOR_GLARE.name: Period(
                 Season.VECTOR_GLARE.value,
-                pendulum.yesterday("Asia/Tokyo").format("YYYYMMDD"),
+                the_day_before(Season.BRUTAL_SWARM.value),
             ),
             Season.DEMON_VEIL.name: Period(
                 Season.DEMON_VEIL.value, the_day_before(Season.VECTOR_GLARE.value)

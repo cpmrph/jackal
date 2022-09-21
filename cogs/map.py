@@ -4,7 +4,6 @@ import os
 
 import discord
 import matplotlib.pyplot as plt
-import matplotlib.ticker as mtick
 import pandas as pd
 import pendulum
 
@@ -108,18 +107,6 @@ class map(commands.Cog):
         }
         return season_table[season]
 
-    def _round_stats(self, stats, side: Side):
-        df = pd.DataFrame(stats)
-        df = df.assign(win=df["rounds_won"] / df["rounds_played"] * 100.0)
-        df = df[["map_name", "rounds_played", "win"]]
-        df = df.rename(
-            columns={
-                "rounds_played": f"{side.value}_rounds",
-                "win": f"{side.value}_win",
-            }
-        )
-        return df
-
     async def _fetch_map_stats(self, user: str, start_date: str, end_date: str):
         # print(f"auth: {os.getenv('EMAIL')}:{os.getenv('PASSWORD')}")
         print(f"_fetch_map_stats: {user} ({start_date} - {end_date})")
@@ -139,34 +126,48 @@ class map(commands.Cog):
             all_stats = [m.__dict__ for m in player.maps.ranked.all]
             df = pd.DataFrame(all_stats)
             df = df.assign(win=df["matches_won"] / df["matches_played"] * 100.0)
-            df = df[["map_name", "matches_played", "win"]]
+            df = df[["map_name", "matches_played", "matches_won", "win"]]
             df = df.rename(columns={"matches_played": "matches"})
-            df = df.sort_values(["win", "matches"], ascending=[False, False])
-
-            # atk_stats = [m.__dict__ for m in player.maps.ranked.attacker]
-            # atkdf = self._round_stats(atk_stats, Side.ATK)
-
-            # def_stats = [m.__dict__ for m in player.maps.ranked.defender]
-            # defdf = self._round_stats(def_stats, Side.DEF)
-
-            # df = pd.merge(df, atkdf, on="map_name")
-            # df = pd.merge(df, defdf, on="map_name")
-
-            # print(df.to_string(index=False))
+            df = df.sort_values(["matches", "win"], ascending=[False, False])
 
             ax = df.plot(
                 kind="bar",
                 x="map_name",
-                y=["win", "matches"],
-                secondary_y="matches",
+                y="matches",
                 title=f"{user} ({start_date} - {end_date})",
                 xlabel="Map",
-                ylabel="Win Rate",
+                ylabel="Matches",
                 mark_right=False,
-                colormap="tab20c",
+                color="silver",
+                width=0.8,
             )
-            ax.yaxis.set_major_formatter(mtick.PercentFormatter())
-            ax.axhline(50.0, linestyle="--", color="black")
+
+            wr_color = [
+                {wr > 50: "dodgerblue", wr == 50: "sandybrown", wr < 50: "lightcoral"}[
+                    True
+                ]
+                for wr in df["win"]
+            ]
+
+            df.plot(
+                kind="bar",
+                x="map_name",
+                y="matches_won",
+                xlabel="Map",
+                ax=ax,
+                width=0.8,
+                color=wr_color,
+            )
+
+            ax.bar_label(ax.containers[0], labels=df["matches"], fontsize=8)
+            ax.bar_label(
+                ax.containers[1],
+                labels=round(df["win"], 1),
+                label_type="center",
+                color="snow",
+                fontsize=8,
+            )
+
             ax.get_figure().tight_layout()
 
             plt.savefig(FILE_NAME)
